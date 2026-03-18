@@ -19,3 +19,4 @@
 ## Лабораторні роботи
 
 1. [Лексичний аналізатор (Скінченний автомат)](https://github.com/borisovvilyaa/Compiler-Construction-Theory/tree/main/lab1)
+2. [Лексичний аналізатор (Регулярні вирази)](https://github.com/borisovvilyaa/Compiler-Construction-Theory/tree/main/lab2)
