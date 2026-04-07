@@ -52,7 +52,7 @@ REGEX_DIGIT   = re.compile(r'[0-9]')
 REGEX_DELIM   = re.compile(r'[(){};]')
 
 # регулярні вирази для класифікації токенів
-REGEX_KEYWORD    = re.compile(r'^(if|else)$')
+REGEX_KEYWORD    = re.compile(r'^if|else$')
 REGEX_IDENTIFIER = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 REGEX_NUMBER     = re.compile(r'^\d+$')
 
