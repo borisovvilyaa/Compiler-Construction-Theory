@@ -1,30 +1,18 @@
-"""
-Лабораторна робота 5 - Побудова команд магазинного автомата
-та перевірка вхідних ланцюжків.
-
-Граматика if-else:
-    1. I  -> If(A){B;R}C
-    2. A  -> exp
-    3. B  -> smth
-    4. R  -> B;R | $
-    5. C  -> Else X | $
-    6. X  -> {B;R} | I
-"""
-
 import re
 import pprint
 
-# ── тестові рядки ─────────────────────────────────────────────────────────────
+# ── test input strings ────────────────────────────────────────────────────────
 
 source = """if ( expr ){
     stmt1;
+]
 """
 
 source1 = """if ( expr ){
     stmt;
 }
 else {
-    stmt;
+    1stmt;
     stmt;
     stmt;
 }"""
@@ -44,9 +32,11 @@ else {
     stmt;
     stmt;
     stmt;
-}"""
+    }
+}
+"""
 
-# ── правила граматики ─────────────────────────────────────────────────────────
+# ── grammar rules ─────────────────────────────────────────────────────────────
 
 RULES = [
     ("I", ["If", "(", "A", ")", "{", "B", ";", "R", "}", "C"]),
@@ -66,7 +56,7 @@ EPSILON       = "$"
 END_MARKER    = "#"
 
 
-# ── сканер ────────────────────────────────────────────────────────────────────
+# ── scanner ───────────────────────────────────────────────────────────────────
 
 REGEX_SPACE      = re.compile(r'[ \t\n\r]')
 REGEX_LETTER     = re.compile(r'[a-zA-Z_]')
@@ -83,7 +73,7 @@ transition_table = {
 }
 
 def get_char_class(ch):
-    """Визначити клас символу для таблиці переходів."""
+    """Determine character class for the transition table."""
     if REGEX_SPACE.match(ch):  return 'space'
     if REGEX_LETTER.match(ch): return 'letter'
     if REGEX_DIGIT.match(ch):  return 'digit'
@@ -91,7 +81,7 @@ def get_char_class(ch):
     return 'other'
 
 def scanner(source):
-    """Розбити вхідний рядок на токени за допомогою скінченного автомата."""
+    """Tokenize the input string using a finite automaton."""
     tokens = []
     state  = 'S0'
     lexeme = []
@@ -140,14 +130,14 @@ def scanner(source):
     return tokens
 
 
-# ── перетворення токенів у граматичні символи ─────────────────────────────────
+# ── convert scanner tokens to grammar symbols ─────────────────────────────────
 
 def tokens_to_grammar_symbols(tokens):
     """
-    Перетворити список токенів сканера у термінальні символи граматики.
+    Map scanner tokens to grammar terminal symbols.
     'if' -> 'If', 'else' -> 'Else',
-    ідентифікатори 'expr*' -> 'exp', решта ідентифікаторів -> 'smth',
-    роздільники -> відповідний термінал.
+    identifiers starting with 'expr' -> 'exp', others -> 'smth',
+    delimiters -> corresponding terminal.
     """
     symbols = []
     for tok in tokens:
@@ -166,17 +156,17 @@ def tokens_to_grammar_symbols(tokens):
     return symbols
 
 
-# ── допоміжні функції граматики ───────────────────────────────────────────────
+# ── grammar helper functions ──────────────────────────────────────────────────
 
 def get_rules_for(nt):
-    """Повернути всі праві частини правил для заданого нетермінала."""
+    """Return all right-hand sides for the given non-terminal."""
     return [rhs for (lhs, rhs) in RULES if lhs == nt]
 
 
-# ── функція ПЕРШ ──────────────────────────────────────────────────────────────
+# ── FIRST function ────────────────────────────────────────────────────────────
 
 def first_of_sequence(seq, visiting=None):
-    """Обчислити множину ПЕРШ для послідовності символів граматики."""
+    """Compute the FIRST set for a sequence of grammar symbols."""
     if visiting is None:
         visiting = set()
     result = set()
@@ -198,7 +188,7 @@ def first_of_sequence(seq, visiting=None):
 
 
 def first_of_nt(nt, visiting=None):
-    """Обчислити множину ПЕРШ для нетермінала."""
+    """Compute the FIRST set for a non-terminal."""
     if visiting is None:
         visiting = set()
     if nt in visiting:
@@ -211,7 +201,7 @@ def first_of_nt(nt, visiting=None):
 
 
 def compute_first_all():
-    """Обчислити ПЕРШ для кожного правила граматики."""
+    """Compute FIRST for every grammar rule."""
     result = {}
     for (lhs, rhs) in RULES:
         key = f"{lhs} -> {' '.join(rhs)}"
@@ -219,13 +209,13 @@ def compute_first_all():
     return result
 
 
-# ── функція СЛІД ──────────────────────────────────────────────────────────────
+# ── FOLLOW function ───────────────────────────────────────────────────────────
 
 def compute_follow():
     """
-    Обчислити множину СЛІД для кожного нетермінала.
-    Стартовий символ I отримує маркер кінця #.
-    Використовується ітеративний алгоритм фіксованої точки.
+    Compute the FOLLOW set for every non-terminal.
+    The start symbol I receives the end-marker #.
+    Uses a fixed-point iteration algorithm.
     """
     follow = {nt: set() for nt in NON_TERMINALS}
     follow["I"].add(END_MARKER)
@@ -250,15 +240,15 @@ def compute_follow():
     return follow
 
 
-# ── множина ВИБІР ─────────────────────────────────────────────────────────────
+# ── SELECT set ────────────────────────────────────────────────────────────────
 
 def compute_choice(follow):
     """
-    Обчислити множину ВИБІР для кожного правила граматики.
+    Compute the SELECT (CHOICE) set for every grammar rule.
 
-    ВИБІР(B -> µ):
-      - якщо µ не породжує ε : ПЕРШ(µ)
-      - якщо µ породжує ε    : (ПЕРШ(µ) \\ {$}) ∪ СЛІД(B)
+    SELECT(B -> µ):
+      - if µ does not derive ε : FIRST(µ)
+      - if µ derives ε         : (FIRST(µ) \\ {$}) ∪ FOLLOW(B)
     """
     result = {}
     for (lhs, rhs) in RULES:
@@ -271,10 +261,10 @@ def compute_choice(follow):
     return result
 
 
-# ── визначення типу граматики ─────────────────────────────────────────────────
+# ── grammar type classification ───────────────────────────────────────────────
 
 def determine_grammar_type(follow):
-    """Класифікувати граматику та повернути словник з результатами аналізу."""
+    """Classify the grammar and return a dict with analysis results."""
     choice = compute_choice(follow)
 
     all_start_terminal = True
@@ -304,8 +294,8 @@ def determine_grammar_type(follow):
                 if inter:
                     choice_disjoint = False
                     conflict_details.append(
-                        f"  ВИБІР({nt_keys[i]}) ∩ "
-                        f"ВИБІР({nt_keys[j]}) = {{ {', '.join(sorted(inter))} }}"
+                        f"  SELECT({nt_keys[i]}) ∩ "
+                        f"SELECT({nt_keys[j]}) = {{ {', '.join(sorted(inter))} }}"
                     )
 
     return {
@@ -317,35 +307,35 @@ def determine_grammar_type(follow):
     }
 
 
-# ── форматування множини ──────────────────────────────────────────────────────
+# ── set formatting helper ──────────────────────────────────────────────────────
 
 def fmt_set(s):
-    """Відформатувати множину: термінали за алфавітом, $ та # завжди останні."""
+    """Format a set: terminals alphabetically, $ and # always last."""
     terminals = sorted(x for x in s if x not in (EPSILON, END_MARKER))
     extras    = sorted(x for x in s if x in (EPSILON, END_MARKER))
     return "{" + ", ".join(terminals + extras) + "}"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ЛАБОРАТОРНА РОБОТА 5 — ПОБУДОВА КОМАНД МАГАЗИННОГО АВТОМАТА
+# LAB 5 — PDA COMMAND CONSTRUCTION
 # ══════════════════════════════════════════════════════════════════════════════
 
 def build_pda_commands(choice):
     """
-    Побудувати всі команди магазинного автомата (функції переходів).
+    Build all pushdown automaton (PDA) transition commands.
 
-    Типи команд (згідно з методичними вказівками):
-      Тип 1 – правило починається з термінала  A -> b α
-               f(s0, b, A) = (s, дзеркало(α))      [голівка зрушується]
-      Тип 2 – правило починається з нетермінала  A -> B α
-               f*(s0, x, A) = (s, дзеркало(B α))   [голівка не зрушується],
-               по одній команді на кожен x з ВИБІР(A -> B α)
-      Тип 3 – анулююче правило  A -> $
-               f*(s0, x, A) = (s, $)               [голівка не зрушується],
-               по одній команді на кожен x з ВИБІР(A -> $)
-      Тип 4 – термінал b знаходиться в середині або в кінці правила
-               f(s0, b, b) = (s, $)               [голівка зрушується]
-      Тип 5 – перехід у заключний стан
+    Command types (per the lab guidelines):
+      Type 1 – rule starts with a terminal  A -> b α
+               f(s0, b, A) = (s, mirror(α))      [head advances]
+      Type 2 – rule starts with a non-terminal  A -> B α
+               f*(s0, x, A) = (s, mirror(B α))   [head does not advance],
+               one command per element x in SELECT(A -> B α)
+      Type 3 – epsilon rule  A -> $
+               f*(s0, x, A) = (s, $)             [head does not advance],
+               one command per element x in SELECT(A -> $)
+      Type 4 – terminal b appears in the middle or at the end of a rule
+               f(s0, b, b) = (s, $)              [head advances]
+      Type 5 – transition to the accepting state
                f*(s0, $, h0) = (s, $)
     """
     commands = []
@@ -354,19 +344,19 @@ def build_pda_commands(choice):
         rule_key = f"{lhs} -> {' '.join(rhs)}"
 
         if rhs == [EPSILON]:
-            # ── тип 3: анулююче правило ───────────────────────────────────────
+            # ── type 3: epsilon rule ──────────────────────────────────────────
             for x in sorted(choice[rule_key]):
                 commands.append({
                     "type":    "f*",
                     "input":   x,
                     "stack":   lhs,
                     "result":  "$",
-                    "comment": f"Анулююче правило {lhs} -> $",
+                    "comment": f"Epsilon rule {lhs} -> $",
                 })
 
         elif rhs[0] not in NON_TERMINALS:
-            # ── тип 1: правило починається з термінала ────────────────────────
-            # перший термінал споживається; решта заноситься у магазин у зворотному порядку
+            # ── type 1: rule starts with a terminal ───────────────────────────
+            # the first terminal is consumed; the rest is pushed in reverse order
             first_terminal = rhs[0]
             rest           = rhs[1:]
             push_str       = " ".join(reversed(rest)) if rest else "$"
@@ -376,13 +366,12 @@ def build_pda_commands(choice):
                 "input":   first_terminal,
                 "stack":   lhs,
                 "result":  push_str,
-                "comment": f"Правило починається з термінала: {lhs} -> {' '.join(rhs)}",
+                "comment": f"Rule starts with terminal: {lhs} -> {' '.join(rhs)}",
             })
 
         else:
-            # ── тип 2: правило починається з нетермінала ─────────────────────
-            # вся права частина заноситься у зворотному порядку;
-            # кількість команд = кількість елементів у ВИБІР
+            # ── type 2: rule starts with a non-terminal ───────────────────────
+            # the entire RHS is pushed in reverse; number of commands = |SELECT|
             push_str = " ".join(reversed(rhs))
 
             for x in sorted(choice[rule_key]):
@@ -391,10 +380,10 @@ def build_pda_commands(choice):
                     "input":   x,
                     "stack":   lhs,
                     "result":  push_str,
-                    "comment": f"Правило починається з нетермінала: {lhs} -> {' '.join(rhs)}",
+                    "comment": f"Rule starts with non-terminal: {lhs} -> {' '.join(rhs)}",
                 })
 
-    # ── тип 4: команди для терміналів у середині та в кінці правил ────────────
+    # ── type 4: commands for terminals in the middle/end of rules ─────────────
     all_terminals_in_rules = set()
     for (lhs, rhs) in RULES:
         for sym in rhs:
@@ -407,23 +396,23 @@ def build_pda_commands(choice):
             "input":   t,
             "stack":   t,
             "result":  "$",
-            "comment": f"Збіг термінала: спожити '{t}' з входу та магазину",
+            "comment": f"Terminal match: consume '{t}' from input and stack",
         })
 
-    # ── тип 5: перехід у заключний стан ──────────────────────────────────────
+    # ── type 5: transition to the accepting state ─────────────────────────────
     commands.append({
         "type":    "f*",
         "input":   "$",
         "stack":   "h0",
         "result":  "$",
-        "comment": "Прийняття: вхід та магазин порожні",
+        "comment": "Accept: input and stack are both empty",
     })
 
     return commands
 
 
 def fmt_command(cmd, index):
-    """Відформатувати одну команду МА у рядок."""
+    """Format a single PDA command as a string."""
     return (
         f"{index}. {cmd['type']}(s0, {cmd['input']}, {cmd['stack']}) "
         f"= (s, {cmd['result']})"
@@ -431,13 +420,13 @@ def fmt_command(cmd, index):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# СИМУЛЯЦІЯ МАГАЗИННОГО АВТОМАТА
+# LAB 6 — PDA SIMULATION (SYNTAX ANALYSER)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def find_command(commands, lexeme, stack_top):
     """
-    Знайти відповідну команду переходу за поточною лексемою та вершиною магазину.
-    Повертає (команда, індекс_1) або (None, -1).
+    Find the matching transition command for the current lexeme and stack top.
+    Returns (command, 1-based index) or (None, -1) if not found.
     """
     for i, cmd in enumerate(commands):
         if cmd["input"] == lexeme and cmd["stack"] == stack_top:
@@ -447,34 +436,35 @@ def find_command(commands, lexeme, stack_top):
 
 def simulate_pda(input_tokens, commands, label):
     """
-    Виконати симуляцію магазинного автомата на послідовності граматичних символів.
-    Виводить зміну конфігурацій у текстовому форматі, як у прикладах з методички.
+    Simulate the pushdown automaton on a sequence of grammar symbols.
+    Prints configuration changes in the textual format used in the lab manual.
 
-    Параметри
+    Parameters
     ----------
-    input_tokens : list[str]   — послідовність граматичних символів (без маркера кінця)
-    commands     : list[dict]  — команди МА, побудовані функцією build_pda_commands()
-    label        : str         — назва перевірки для заголовка виводу
+    input_tokens : list[str]   — sequence of grammar symbols (without end-marker)
+    commands     : list[dict]  — PDA commands built by build_pda_commands()
+    label        : str         — test-case label used in the header
     """
-    print(f"ПЕРЕВІРКА ЛАНЦЮЖКА: {label}")
+    print(f"CHECKING INPUT CHAIN: {label}")
 
-    # Вхідна стрічка завершується маркером кінця #
+    # Input tape ends with the end-marker #
     tape  = list(input_tokens) + [END_MARKER]
-    # Магазин: індекс 0 = дно (h0), -1 = вершина; початково h0 та стартовий символ I
+    # Stack: index 0 = bottom (h0), index -1 = top; initially h0 and start symbol I
     stack = ["h0", "I"]
 
+    # Print initial configuration
     tape_str  = "".join(tape[:-1]) + tape[-1]
     stack_str = "".join(reversed(stack))
     print(f"({tape_str}, {stack_str})", end="")
 
-    step   = 0
-    ok     = False
+    step = 0
+    ok   = False
 
     while True:
         lexeme    = tape[0]
         stack_top = stack[-1] if stack else None
 
-        # Умова прийняття: вхід і магазин порожні
+        # Acceptance condition: both input and stack are exhausted
         if lexeme == END_MARKER and stack_top == "h0":
             cmd, idx = find_command(commands, "$", "h0")
             if cmd:
@@ -486,7 +476,7 @@ def simulate_pda(input_tokens, commands, label):
 
         if stack_top is None:
             print()
-            print("  ПОМИЛКА АНАЛІЗУ — магазин порожній, вхід не вичерпано")
+            print("  ANALYSIS ERROR — stack is empty but input is not exhausted")
             break
 
         cmd, idx = find_command(commands, lexeme, stack_top)
@@ -494,25 +484,25 @@ def simulate_pda(input_tokens, commands, label):
         if cmd is None:
             print()
             print(
-                f"  ПОМИЛКА АНАЛІЗУ — не знайдено команди для "
-                f"(вхід='{lexeme}', вершина магазину='{stack_top}')"
+                f"  ANALYSIS ERROR — no command found for "
+                f"(input='{lexeme}', stack_top='{stack_top}')"
             )
             break
 
-        # Видалити вершину магазину
+        # Pop the stack top
         stack.pop()
 
         if cmd["type"] == "f":
-            # Зрушення вхідної голівки (споживаємо лексему)
+            # Advance the input head (consume the lexeme)
             tape.pop(0)
 
-        # Занести результат у магазин у зворотному порядку
+        # Push the result string onto the stack in reverse order
         result_str = cmd["result"]
         if result_str != "$":
             for tok in result_str.split():
                 stack.append(tok)
 
-        # Сформувати рядок поточної конфігурації
+        # Build the current configuration string
         tape_str  = "".join(tape[:-1]) + tape[-1] if len(tape) > 1 else tape[0]
         stack_str = "".join(reversed(stack)) if stack else "$"
         print(f" ├ {idx}")
@@ -521,57 +511,57 @@ def simulate_pda(input_tokens, commands, label):
         step += 1
         if step > 10_000:
             print()
-            print("  ПОМИЛКА АНАЛІЗУ — перевищено максимальну кількість кроків")
+            print("  ANALYSIS ERROR — maximum step count exceeded")
             break
 
     print()
     if ok:
-        print("Результат: ЛАНЦЮЖОК РОЗПІЗНАНО (Аналіз ОК)")
+        print("Result: CHAIN ACCEPTED (Analysis OK)")
     else:
-        print("Результат: ЛАНЦЮЖОК НЕ РОЗПІЗНАНО (Помилка аналізу)")
+        print("Result: CHAIN REJECTED (Analysis ERROR)")
     print()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ГОЛОВНА ФУНКЦІЯ
+# MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 
 def main():
-    # ── правила граматики ─────────────────────────────────────────────────────
-    print("Правила граматики:")
+    # ── grammar rules ─────────────────────────────────────────────────────────
+    print("Grammar rules:")
     for i, (lhs, rhs) in enumerate(RULES, 1):
         print(f"  {i}. {lhs} -> {' '.join(rhs)}")
     print()
 
-    # ── функція ПЕРШ ──────────────────────────────────────────────────────────
+    # ── FIRST function ─────────────────────────────────────────────────────────
     first_all = compute_first_all()
-    print("Функція ПЕРШ(µ) для кожного правила:")
+    print("FIRST(µ) for each grammar rule:")
     for rule_key, first_set in first_all.items():
-        print(f"  ПЕРШ({rule_key}) = {fmt_set(first_set)}")
+        print(f"  FIRST({rule_key}) = {fmt_set(first_set)}")
     print()
 
-    print("Функція ПЕРШ(µ) для нетерміналів:")
+    print("FIRST(µ) for non-terminals:")
     for nt in sorted(NON_TERMINALS):
-        print(f"  ПЕРШ({nt}) = {fmt_set(first_of_nt(nt))}")
+        print(f"  FIRST({nt}) = {fmt_set(first_of_nt(nt))}")
     print()
 
-    # ── функція СЛІД ──────────────────────────────────────────────────────────
+    # ── FOLLOW function ────────────────────────────────────────────────────────
     follow = compute_follow()
-    print("Функція СЛІД(µ):")
+    print("FOLLOW(µ):")
     for nt in sorted(NON_TERMINALS):
-        print(f"  СЛІД({nt}) = {fmt_set(follow[nt])}")
+        print(f"  FOLLOW({nt}) = {fmt_set(follow[nt])}")
     print()
 
-    # ── множина ВИБІР ─────────────────────────────────────────────────────────
+    # ── SELECT set ─────────────────────────────────────────────────────────────
     info   = determine_grammar_type(follow)
     choice = info["choice"]
 
-    print("Множина ВИБІР:")
+    print("SELECT set:")
     for rule_key, choice_set in choice.items():
-        print(f"  ВИБІР({rule_key}) = {fmt_set(choice_set)}")
+        print(f"  SELECT({rule_key}) = {fmt_set(choice_set)}")
     print()
 
-    # ── тип граматики ──────────────────────────────────────────────────────────
+    # ── grammar type ───────────────────────────────────────────────────────────
     is_simple = (
         info["all_start_terminal"]
         and not info["has_epsilon_rule"]
@@ -584,67 +574,68 @@ def main():
     is_ll1 = info["choice_disjoint"]
 
     if is_simple:
-        conclusion = "ПРОСТА (розділена) граматика"
+        conclusion = "SIMPLE (separated) grammar"
     elif is_weakly_separated:
-        conclusion = "СЛАБКО-РОЗДІЛЕНА граматика"
+        conclusion = "WEAKLY-SEPARATED grammar"
     elif is_ll1:
-        conclusion = "LL(1) граматика"
+        conclusion = "LL(1) grammar"
     else:
-        conclusion = "НЕ є LL(1) граматикою"
+        conclusion = "NOT an LL(1) grammar"
 
-    print(f"Тип граматики: {conclusion}")
+    print(f"Grammar type: {conclusion}")
     print()
 
     if info["conflict_details"]:
-        print("Конфлікти у множині ВИБІР:")
+        print("Conflicts in SELECT sets:")
         for d in info["conflict_details"]:
             print(d)
         print()
 
-    # ── команди магазинного автомата ──────────────────────────────────────────
+    # ── PDA commands ───────────────────────────────────────────────────────────
     commands = build_pda_commands(choice)
 
-    print("Команди магазинного автомата:")
-    print("  Позначення:")
-    print("  f  (s0, вхід, вершина_магазину) = (s, рядок_запису)  — голівка зрушується")
-    print("  f* (s0, вхід, вершина_магазину) = (s, рядок_запису)  — голівка не зрушується")
-    print("  '$' як рядок_запису означає: виштовхнути без занесення (порожній результат)")
+    print("PDA transition commands:")
+    print("  Notation:")
+    print("  f  (s0, input, stack_top) = (s, push_string)  — head advances")
+    print("  f* (s0, input, stack_top) = (s, push_string)  — head does NOT advance")
+    print("  '$' as push_string means: pop without pushing (empty result)")
     print()
     for i, cmd in enumerate(commands, 1):
         print(f"  {fmt_command(cmd, i):<55}  # {cmd['comment']}")
     print()
 
-    # ── початкова конфігурація ────────────────────────────────────────────────
-    print("Початкова конфігурація:")
+    # ── initial configuration ─────────────────────────────────────────────────
+    print("Initial configuration:")
     print("  (s0, µ, h0I)")
-    print("  де µ — вхідний ланцюжок, h0 — маркер дна магазину,")
-    print("  I — стартовий символ граматики.")
+    print("  where µ is the input chain, h0 is the stack-bottom marker,")
+    print("  and I is the grammar start symbol.")
     print()
 
-    # ── перевірка тестових рядків ─────────────────────────────────────────────
+    # ── test strings ───────────────────────────────────────────────────────────
     print("=" * 70)
-    print("ПЕРЕВІРКА ТЕСТОВИХ РЯДКІВ")
+    print("LAB 6 — SYNTAX ANALYSER: CHAIN VERIFICATION")
     print("=" * 70)
     print()
 
     test_cases = [
-        (source,  "Рядок 1 — простий if без else"),
-        (source1, "Рядок 2 — if з else та кількома операторами"),
-        (source2, "Рядок 3 — вкладені if-else if-else"),
+        (source,  "String 1 — simple if without else (incomplete / error expected)"),
+        (source1, "String 2 — if with else and multiple statements"),
+        (source2, "String 3 — nested if-else if-else"),
     ]
 
     for src, label in test_cases:
-        print(f"Вхідний рядок ({label}):")
+        print(f"Input string ({label}):")
         print(src)
         print()
 
         tokens  = scanner(src)
         symbols = tokens_to_grammar_symbols(tokens)
 
-        print("Граматичні символи після сканування:")
+        print("Grammar symbols after scanning:")
         pprint.pprint(symbols)
         print()
 
+        # Lab 6: run the PDA simulation (syntax analyser verification)
         simulate_pda(symbols, commands, label)
         print("-" * 70)
         print()
